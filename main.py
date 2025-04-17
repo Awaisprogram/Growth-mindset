@@ -2,108 +2,135 @@ import streamlit as st
 from datetime import datetime, timedelta
 
 def main():
-    st.title("Growth Mindset Dashboard")
-    st.write("Welcome to your personal growth tracker!")
-    
-    # Add a sidebar for navigation
+    st.title("🌱 My Growth Journey Dashboard 🌱")
+    st.markdown("Track your learning and growth with this interactive dashboard.")
+
+    # Initialize session state for progress data
+    if 'progress_data' not in st.session_state:
+        st.session_state.progress_data = []
+
+    # --- Sidebar for Navigation and Quick Actions ---
     with st.sidebar:
-        st.header("Navigation")
-        page = st.radio("Select a page:", ["Dashboard", "Progress Tracker", "Resources"])
-    
-    # Main content based on selection
-    if page == "Dashboard":
-        show_dashboard()
-    elif page == "Progress Tracker":
-        show_progress_tracker()
-    else:
+        st.header("🧭 Navigation & Actions 🚀")
+        page = st.radio("Explore:", ["Overview", "Log New Entry", "Learning Resources"])
+
+        st.subheader("⚡ Quick Log")
+        with st.form("quick_log_form"):
+            quick_date = st.date_input("Date", datetime.now().date())
+            quick_focus = st.text_input("Focus:")
+            quick_hours = st.number_input("Hours:", min_value=0.0, max_value=24.0, step=0.5)
+            quick_learnings = st.text_area("Quick Learning Point:")
+            submitted_quick = st.form_submit_button("Add Quick Entry")
+
+            if submitted_quick:
+                if quick_focus and quick_hours > 0 and quick_learnings:
+                    st.session_state.progress_data.insert(0, {
+                        "Date": quick_date.strftime("%Y-%m-%d"),
+                        "Focus": quick_focus,
+                        "Hours": quick_hours,
+                        "Learnings": quick_learnings,
+                        "Challenges": "",
+                        "Overcame": ""
+                    })
+                    st.success("Quick entry saved!")
+                else:
+                    st.error("Please fill in Date, Focus, Hours, and Quick Learning.")
+
+    # --- Main Content Area ---
+    if page == "Overview":
+        show_overview()
+    elif page == "Log New Entry":
+        show_log_entry_form()
+    elif page == "Learning Resources":
         show_resources()
 
-def show_dashboard():
-    st.header("Your Growth Dashboard")
-    
-    # Sample metrics
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric(label="Learning Hours", value="42", delta="8")
-    with col2:
-        st.metric(label="Books Read", value="5", delta="1")
-    with col3:
-        st.metric(label="Challenges Completed", value="12", delta="3")
-    
-    # Sample chart
-    st.subheader("Weekly Progress")
-    dates = [datetime.now().date() - timedelta(days=x) for x in range(6, -1, -1)]
-    chart_data = {
-        'Date': dates,
-        'Learning': [4, 3, 5, 2, 4, 3, 5],
-        'Practice': [2, 4, 3, 4, 3, 5, 4],
-        'Reflection': [3, 3, 4, 3, 5, 4, 3]
-    }
-    st.line_chart(chart_data, x='Date')
-    
-    st.info("Remember: Growth is a continuous process, and every step counts. 🚀")
+def show_overview():
+    st.header("📊 Your Growth Summary 📈")
 
-def show_progress_tracker():
-    st.header("Track Your Progress")
-    
-    # Initialize session state for progress data if it doesn't exist
-    if 'progress_data' not in st.session_state:
-        st.session_state.progress_data = {
-            "Date": ["2023-06-01", "2023-06-02", "2023-06-03"],
-            "Hours": [2.5, 1.0, 3.0],
-            "Topic": ["Python Basics", "Data Visualization", "Machine Learning"]
-        }
-    
-    # Sample form for logging progress
-    with st.form("progress_form"):
+    if st.session_state.progress_data:
+        total_hours = sum(entry["Hours"] for entry in st.session_state.progress_data)
+        num_entries = len(st.session_state.progress_data)
+        latest_entry = st.session_state.progress_data[0]
+        latest_focus = latest_entry["Focus"]
+        latest_date = latest_entry["Date"]
+
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total Learning Hours", f"{total_hours:.1f} hours")
+        col2.metric("Total Entries", num_entries)
+        col3.metric("Last Focus", f"{latest_focus} ({latest_date})")
+
+        st.subheader("Learning Hours Over Time")
+        # Prepare data for line chart
+        chart_data = {}
+        for entry in st.session_state.progress_data:
+            date_str = entry["Date"]
+            hours = entry["Hours"]
+            if date_str not in chart_data:
+                chart_data[date_str] = 0
+            chart_data[date_str] += hours
+        if chart_data:
+            dates = sorted(chart_data.keys())
+            hours_list = [chart_data[date] for date in dates]
+            st.line_chart({"Date": dates, "Hours": hours_list}, x="Date", y="Hours")
+        else:
+            st.info("No learning data available for the chart yet.")
+
+        st.subheader("Recent Activities")
+        st.table(st.session_state.progress_data)
+    else:
+        st.info("No progress data available yet. Start logging your learning!")
+
+def show_log_entry_form():
+    st.header("📝 Log Your Learning Session")
+    with st.form("new_progress_form"):
         date = st.date_input("Date", datetime.now().date())
-        hours = st.number_input("Hours spent learning", min_value=0.0, max_value=24.0, step=0.5)
-        topic = st.text_area("What did you learn today?")
-        st.text_area("Challenges faced")
-        st.text_area("How did you overcome them?")
-        submitted = st.form_submit_button("Save Progress")
-        
+        focus = st.text_input("What was your main focus of learning today?")
+        hours = st.number_input("Hours spent learning:", min_value=0.0, max_value=24.0, step=0.5)
+        learnings = st.text_area("Key takeaways and learnings:")
+        challenges = st.text_area("What challenges did you encounter?")
+        overcame = st.text_area("How did you overcome these challenges?")
+        submitted = st.form_submit_button("Save Progress Entry")
+
         if submitted:
             errors = []
             if not date:
                 errors.append("Please select a date.")
+            if not focus:
+                errors.append("Please describe your learning focus.")
             if hours <= 0:
-                errors.append("Hours spent learning must be greater than 0.")
-            if not topic:
-                errors.append("Please describe what you learned.")
+                errors.append("Learning hours must be greater than 0.")
+            if not learnings:
+                errors.append("Please share your key learnings.")
 
             if errors:
                 for error in errors:
                     st.error(error)
             else:
-                # Add new entry to progress data
-                st.session_state.progress_data["Date"].insert(0, date.strftime("%Y-%m-%d"))
-                st.session_state.progress_data["Hours"].insert(0, hours)
-                st.session_state.progress_data["Topic"].insert(0, topic)
-
-                st.success("Progress saved successfully!")
-                st.write("Your progress has been recorded. Keep up the good work!")
-    
-    # Display progress data
-    st.subheader("Recent Progress")
-    st.table(st.session_state.progress_data)
+                st.session_state.progress_data.insert(0, {
+                    "Date": date.strftime("%Y-%m-%d"),
+                    "Focus": focus,
+                    "Hours": hours,
+                    "Learnings": learnings,
+                    "Challenges": challenges,
+                    "Overcame": overcame
+                })
+                st.success("Progress entry saved successfully!")
 
 def show_resources():
-    st.header("Growth Mindset Resources")
-    
-    st.subheader("Recommended Books")
-    books = [
-        {"title": "Mindset: The New Psychology of Success", "author": "Carol S. Dweck"},
-        {"title": "Atomic Habits", "author": "James Clear"},
-        {"title": "Deep Work", "author": "Cal Newport"}
-    ]
-    for book in books:
-        st.write(f"**{book['title']}** by {book['author']}")
-    
-    st.subheader("Helpful Articles")
-    st.markdown("* [The Power of Believing You Can Improve](https://www.ted.com/talks/carol_dweck_the_power_of_believing_that_you_can_improve)")
-    st.markdown("* [Growth Mindset: A Driving Philosophy](https://fs.blog/carol-dweck-mindset/)")
-    st.markdown("* [Fixed vs. Growth: The Two Basic Mindsets That Shape Our Lives](https://www.brainpickings.org/2014/01/29/carol-dweck-mindset/)")
+    st.header("📚 Learning Resources & Inspiration ✨")
+
+    st.subheader("Recommended Reads 📖")
+    st.markdown("* **Mindset: The New Psychology of Success** by Carol S. Dweck")
+    st.markdown("* **Atomic Habits** by James Clear")
+    st.markdown("* **Deep Work: Rules for Focused Success in a Distracted World** by Cal Newport")
+
+    st.subheader("Inspiring Talks & Articles 💡")
+    st.markdown("* [TED Talk: The power of believing that you can improve](https://www.ted.com/talks/carol_dweck_the_power_of_believing_that_you_can_improve)")
+    st.markdown("* [Article: What is a Growth Mindset?](https://www.mindsetworks.com/science/impact)")
+    st.markdown("* [Blog Post: Cultivating a Growth Mindset](https://fs.blog/2015/01/growth-mindset/)")
+
+    st.subheader("Your Notes & Reflections 📝")
+    st.text_area("Space for your thoughts and reflections on your learning journey.")
 
 if __name__ == "__main__":
     main()
